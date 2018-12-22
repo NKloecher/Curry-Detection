@@ -1,11 +1,9 @@
 import javafx.application.Application;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.Scene;
-import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
@@ -16,8 +14,6 @@ import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.awt.image.WritableRaster;
 import java.io.File;
-import java.io.FileInputStream;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -38,25 +34,19 @@ public class CurryPanel extends Application {
     }
 
 
-    private ImageView i;
-    private ImageView i2;
     @Override
     public void start(Stage stage) {
         Scene scene = new Scene(pane);
-        i = new ImageView(new Image(new File("res/flower.jpg").toURI().toString()));
-        i2 = new ImageView(new Image(new File("res/flower.jpg").toURI().toString()));
-        HBox hbox = new HBox();
-        hbox.getChildren().addAll(i,i2);
-        hbox.getChildren().add(originalImage);
-        pane.getChildren().add(hbox);
-        //pane.getChildren().add(new TextField("Olalalalala"));
-        //pane.getChildren().add(new ImageView(new Image(new File("res/flower.jpg").toURI().toString())));
+        ImageView testStillImage = new ImageView(new Image(new File("res/flower.jpg").toURI().toString()));
+        pane.getChildren().addAll(originalImage, greyscaleImage, testStillImage);
+
         stage.setTitle("TestFX");
         stage.setScene(scene);
+
         stage.show();
         ScheduledExecutorService s = Executors.newSingleThreadScheduledExecutor();
         s.scheduleAtFixedRate(this::startCamera, 0 , 20, TimeUnit.MILLISECONDS);
-        //startCamera();
+        startCamera();
     }
 
     private void startCamera() {
@@ -72,12 +62,12 @@ public class CurryPanel extends Application {
         while (camera.read(frame)) {
             System.out.println("working");
             BufferedImage imageB = matToBufferedImage(frame);
-            BufferedImage greyscaleB = grayscale(imageB);
-
             Image orig = SwingFXUtils.toFXImage(imageB, null);
-            //Image grey = SwingFXUtils.toFXImage(greyscaleB, null);
-            i2.setImage(orig);
-            //greyscaleImage.setImage(grey);
+            originalImage.setImage(orig);
+
+            BufferedImage greyscaleB = grayscale(imageB);
+            Image grey = SwingFXUtils.toFXImage(greyscaleB, null);
+            greyscaleImage.setImage(grey);
         }
         camera.release();
     }
