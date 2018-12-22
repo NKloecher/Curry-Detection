@@ -10,6 +10,7 @@ import javafx.stage.Stage;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.video.Video;
 import org.opencv.videoio.VideoCapture;
 
 import java.awt.*;
@@ -23,6 +24,9 @@ import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("Duplicates")
 public class CurryPanel extends Application {
+
+    private VideoCapture camera;
+    private Mat frame = new Mat();
 
     private final GridPane pane = new GridPane();
     private final ImageView originalImage = new ImageView();
@@ -58,44 +62,21 @@ public class CurryPanel extends Application {
         stage.setScene(scene);
 
         stage.show();
-        ScheduledExecutorService s = Executors.newSingleThreadScheduledExecutor();
-            s.scheduleAtFixedRate(() -> {
-                try {
-                    startCamera();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }, 0, 20, TimeUnit.MILLISECONDS);
+        camera = new VideoCapture(0);
+        startCamera();
     }
 
-    private void startCamera() throws Exception {
-        VideoCapture camera = new VideoCapture(0);
-        Mat frame = new Mat();
-        camera.read(frame);
+    private void startCamera() {
+        Runnable grabFrame = () -> {
+            camera.read(frame);
+            BufferedImage image = matToBufferedImage(frame);
+            originalImage.setImage(SwingFXUtils.toFXImage(image,null));
+            BufferedImage grey = grayscale(image);
+            greyscaleImage.setImage(SwingFXUtils.toFXImage(grey,null));
+        };
 
-        if(!camera.isOpened()){
-            System.out.println("Error");
-            throw new Exception();
-        }
-
-        while (camera.read(frame)) {
-            System.out.println("working");
-            //todo work on original -> display flipped
-            /*
-            BufferedImage imageB = matToBufferedImage(frame);
-            Image orig = SwingFXUtils.toFXImage(imageB, null);
-            originalImage.setImage(orig);
-
-            BufferedImage greyscaleB = grayscale(imageB);
-            Image grey = SwingFXUtils.toFXImage(greyscaleB, null);
-            greyscaleImage.setImage(grey);
-             */
-
-            BufferedImage[] images = matToImages(frame);
-            originalImage.setImage(SwingFXUtils.toFXImage(images[0],null));
-            greyscaleImage.setImage(SwingFXUtils.toFXImage(images[1],null));
-        }
-        camera.release();
+        ScheduledExecutorService s = Executors.newSingleThreadScheduledExecutor();
+        s.scheduleAtFixedRate(grabFrame, 0, 20, TimeUnit.MILLISECONDS);
     }
 
 
@@ -140,35 +121,6 @@ public class CurryPanel extends Application {
 
         return image;
     }
-
-    private BufferedImage[] matToImages(Mat frame) {
-        BufferedImage[] images = new BufferedImage[3];
-        int type = 0;
-        if (frame.channels() == 1) {
-            type = BufferedImage.TYPE_BYTE_GRAY;
-        } else if (frame.channels() == 3) {
-            type = BufferedImage.TYPE_3BYTE_BGR;
-        }
-        BufferedImage image = new BufferedImage(frame.width(), frame.height(), BufferedImage.TYPE_BYTE_GRAY);
-        BufferedImage imageGrey = new BufferedImage(frame.width(), frame.height(), BufferedImage.TYPE_3BYTE_BGR);
-
-        WritableRaster raster = image.getRaster();
-        DataBufferByte dataBuffer = (DataBufferByte) raster.getDataBuffer();
-        byte[] data = dataBuffer.getData();
-
-        Core.flip(frame,frame, 1);
-        frame.get(0, 0, data);
-
-        WritableRaster r = imageGrey.getRaster();
-        DataBufferByte db = (DataBufferByte) r.getDataBuffer();
-        byte[] d = db.getData();
-        Mat f1 = new Mat();
-        Imgproc.cvtColor(frame,f1,Imgproc.COLOR_BGR2GRAY,1);
-        f1.get(0,0,d);
-
-        return new BufferedImage[]{image,imageGrey};
-    }
-
 
     @Override
     public void stop() throws Exception {
