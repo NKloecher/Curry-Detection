@@ -69,10 +69,11 @@ public class CurryPanel extends Application {
     private void startCamera() {
         Runnable grabFrame = () -> {
             camera.read(frame);
-            BufferedImage image = matToBufferedImage(frame);
-            originalImage.setImage(SwingFXUtils.toFXImage(image,null));
-            BufferedImage grey = grayscale(image);
-            greyscaleImage.setImage(SwingFXUtils.toFXImage(grey,null));
+            t(frame);
+//            BufferedImage image = matToBufferedImage(frame);
+//            originalImage.setImage(SwingFXUtils.toFXImage(image,null));
+//            BufferedImage grey = grayscale(image);
+//            greyscaleImage.setImage(SwingFXUtils.toFXImage(grey,null));
         };
 
         ScheduledExecutorService s = Executors.newSingleThreadScheduledExecutor();
@@ -101,6 +102,33 @@ public class CurryPanel extends Application {
         }
 
         return img;
+    }
+
+    private void t(Mat frame) {
+        Mat original = new Mat();
+        Mat gray = new Mat();
+        Mat threshold = new Mat();
+        //detection?
+
+        BufferedImage image = new BufferedImage(frame.width(), frame.height(), BufferedImage.TYPE_3BYTE_BGR);
+        WritableRaster raster = image.getRaster();
+        DataBufferByte dataBuffer = (DataBufferByte) raster.getDataBuffer();
+        byte[] data = dataBuffer.getData();
+
+        Core.flip(frame,frame, 1);
+        frame.get(0, 0, data);
+
+        Imgproc.cvtColor(frame,gray,Imgproc.COLOR_BGR2GRAY);
+        BufferedImage grayImage = new BufferedImage(gray.width(), frame.height(), BufferedImage.TYPE_BYTE_GRAY);
+        WritableRaster raster2 = grayImage.getRaster();
+        DataBufferByte dataBufferByte2 = (DataBufferByte) raster2.getDataBuffer();
+        byte[] data2 = dataBufferByte2.getData();
+
+        gray.get(0,0,data2);
+
+        originalImage.setImage(SwingFXUtils.toFXImage(image,null));
+        greyscaleImage.setImage(SwingFXUtils.toFXImage(grayImage,null));
+
     }
 
     private BufferedImage matToBufferedImage(Mat frame) {
