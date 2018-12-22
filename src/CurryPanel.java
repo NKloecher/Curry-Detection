@@ -9,6 +9,7 @@ import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
+import org.opencv.imgproc.Imgproc;
 import org.opencv.videoio.VideoCapture;
 
 import java.awt.*;
@@ -80,6 +81,7 @@ public class CurryPanel extends Application {
         while (camera.read(frame)) {
             System.out.println("working");
             //todo work on original -> display flipped
+            /*
             BufferedImage imageB = matToBufferedImage(frame);
             Image orig = SwingFXUtils.toFXImage(imageB, null);
             originalImage.setImage(orig);
@@ -87,6 +89,11 @@ public class CurryPanel extends Application {
             BufferedImage greyscaleB = grayscale(imageB);
             Image grey = SwingFXUtils.toFXImage(greyscaleB, null);
             greyscaleImage.setImage(grey);
+             */
+
+            BufferedImage[] images = matToImages(frame);
+            originalImage.setImage(SwingFXUtils.toFXImage(images[0],null));
+            greyscaleImage.setImage(SwingFXUtils.toFXImage(images[1],null));
         }
         camera.release();
     }
@@ -132,6 +139,34 @@ public class CurryPanel extends Application {
         frame.get(0, 0, data);
 
         return image;
+    }
+
+    private BufferedImage[] matToImages(Mat frame) {
+        BufferedImage[] images = new BufferedImage[3];
+        int type = 0;
+        if (frame.channels() == 1) {
+            type = BufferedImage.TYPE_BYTE_GRAY;
+        } else if (frame.channels() == 3) {
+            type = BufferedImage.TYPE_3BYTE_BGR;
+        }
+        BufferedImage image = new BufferedImage(frame.width(), frame.height(), BufferedImage.TYPE_BYTE_GRAY);
+        BufferedImage imageGrey = new BufferedImage(frame.width(), frame.height(), BufferedImage.TYPE_3BYTE_BGR);
+
+        WritableRaster raster = image.getRaster();
+        DataBufferByte dataBuffer = (DataBufferByte) raster.getDataBuffer();
+        byte[] data = dataBuffer.getData();
+
+        Core.flip(frame,frame, 1);
+        frame.get(0, 0, data);
+
+        WritableRaster r = imageGrey.getRaster();
+        DataBufferByte db = (DataBufferByte) r.getDataBuffer();
+        byte[] d = db.getData();
+        Mat f1 = new Mat();
+        Imgproc.cvtColor(frame,f1,Imgproc.COLOR_BGR2GRAY,1);
+        f1.get(0,0,d);
+
+        return new BufferedImage[]{image,imageGrey};
     }
 
 
