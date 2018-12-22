@@ -1,9 +1,11 @@
 import javafx.application.Application;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
@@ -24,6 +26,8 @@ public class CurryPanel extends Application {
     private final GridPane pane = new GridPane();
     private final ImageView originalImage = new ImageView();
     private final ImageView greyscaleImage = new ImageView();
+    private final ImageView thresholdImage = new ImageView();
+    private final ImageView detectionImage = new ImageView();
 
     static {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
@@ -33,34 +37,49 @@ public class CurryPanel extends Application {
         launch();
     }
 
-
     @Override
     public void start(Stage stage) {
+
         Scene scene = new Scene(pane);
+        pane.setMinSize(1280, 980);
+        pane.setHgap(10);
+        pane.setVgap(10);
+
         ImageView testStillImage = new ImageView(new Image(new File("res/flower.jpg").toURI().toString()));
-        pane.getChildren().addAll(originalImage, greyscaleImage, testStillImage);
+
+        pane.add(originalImage,0,0);
+        pane.add(greyscaleImage,1,0);
+
+        //pane.add(thresholdImage,0,1);
+        //pane.add(detectionImage,1,1);
 
         stage.setTitle("TestFX");
         stage.setScene(scene);
 
         stage.show();
         ScheduledExecutorService s = Executors.newSingleThreadScheduledExecutor();
-        s.scheduleAtFixedRate(this::startCamera, 0 , 20, TimeUnit.MILLISECONDS);
-        startCamera();
+            s.scheduleAtFixedRate(() -> {
+                try {
+                    startCamera();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }, 0, 20, TimeUnit.MILLISECONDS);
     }
 
-    private void startCamera() {
+    private void startCamera() throws Exception {
         VideoCapture camera = new VideoCapture(0);
         Mat frame = new Mat();
         camera.read(frame);
 
         if(!camera.isOpened()){
             System.out.println("Error");
-            return;
+            throw new Exception();
         }
 
         while (camera.read(frame)) {
             System.out.println("working");
+            //todo work on original -> display flipped
             BufferedImage imageB = matToBufferedImage(frame);
             Image orig = SwingFXUtils.toFXImage(imageB, null);
             originalImage.setImage(orig);
@@ -71,6 +90,8 @@ public class CurryPanel extends Application {
         }
         camera.release();
     }
+
+
 
     private BufferedImage grayscale(BufferedImage img) {
         for (int i = 0; i < img.getHeight(); i++) {
@@ -106,6 +127,8 @@ public class CurryPanel extends Application {
         WritableRaster raster = image.getRaster();
         DataBufferByte dataBuffer = (DataBufferByte) raster.getDataBuffer();
         byte[] data = dataBuffer.getData();
+
+        Core.flip(frame,frame, 1);//todo maybe not here
         frame.get(0, 0, data);
 
         return image;
