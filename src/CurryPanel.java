@@ -110,6 +110,7 @@ public class CurryPanel extends Application {
         Mat threshold = new Mat();
         //detection?
 
+        //colour
         BufferedImage image = new BufferedImage(frame.width(), frame.height(), BufferedImage.TYPE_3BYTE_BGR);
         WritableRaster raster = image.getRaster();
         DataBufferByte dataBuffer = (DataBufferByte) raster.getDataBuffer();
@@ -118,6 +119,7 @@ public class CurryPanel extends Application {
         Core.flip(frame,frame, 1);
         frame.get(0, 0, data);
 
+        //greyscale
         Imgproc.cvtColor(frame,gray,Imgproc.COLOR_BGR2GRAY);
         BufferedImage grayImage = new BufferedImage(gray.width(), frame.height(), BufferedImage.TYPE_BYTE_GRAY);
         WritableRaster raster2 = grayImage.getRaster();
@@ -126,8 +128,20 @@ public class CurryPanel extends Application {
 
         gray.get(0,0,data2);
 
+        //thresholding
+        Imgproc.adaptiveThreshold(frame,threshold, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY, 20,5);
+        BufferedImage thresImage = new BufferedImage(threshold.width(), threshold.height(), BufferedImage.TYPE_BYTE_BINARY);
+        WritableRaster raster3 = thresImage.getRaster();
+        DataBufferByte dataBufferByte3 = (DataBufferByte) raster3.getDataBuffer();
+        byte[] data3 = dataBufferByte3.getData();
+
+
+        threshold.get(0,0,data3);
+
+
         originalImage.setImage(SwingFXUtils.toFXImage(image,null));
         greyscaleImage.setImage(SwingFXUtils.toFXImage(grayImage,null));
+        thresholdImage.setImage(SwingFXUtils.toFXImage(thresImage, null));
 
     }
 
