@@ -1,9 +1,11 @@
 import javafx.application.Application;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.scene.Scene;
+import javafx.scene.control.Slider;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import org.opencv.core.*;
 import org.opencv.imgproc.Imgproc;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 public class CurryPanel extends Application {
     /*
     TODO Dynamic binary image, last image for detection/contours
+        VBox with slider options (fx thresholding)
      */
 
     private VideoCapture camera;
@@ -51,7 +54,7 @@ public class CurryPanel extends Application {
     public void start(Stage stage) {
 
         Scene scene = new Scene(pane);
-        pane.setMinSize(1280, 980);
+        pane.setMinSize(1400, 980);
         pane.setHgap(10);
         pane.setVgap(10);
 
@@ -63,6 +66,13 @@ public class CurryPanel extends Application {
         pane.add(thresholdImage,0,1);
         //pane.add(testStillImage,0,1);
         pane.add(detectionImage,1,1);
+
+        VBox settingsBox = new VBox();
+        Slider s1 = new Slider();
+        Slider s2 = new Slider();
+        Slider s3 = new Slider();
+        settingsBox.getChildren().addAll(s1,s2,s3);
+        pane.add(settingsBox, 0,2);
 
         stage.setTitle("CurryDetectionFX");
         stage.setScene(scene);
@@ -129,6 +139,7 @@ public class CurryPanel extends Application {
 
     private void processFrame(Mat frame) {
         frame.copyTo(original);
+        Core.flip(original,original,1);
         Mat gray = new Mat();
         Mat threshold = new Mat();
         //detection?
@@ -139,7 +150,7 @@ public class CurryPanel extends Application {
         DataBufferByte dataBuffer = (DataBufferByte) raster.getDataBuffer();
         byte[] data = dataBuffer.getData();
 
-        Core.flip(frame,frame, 1);
+        Core.flip(frame,frame, 1);//todo.... don't process on flipped image
         frame.get(0, 0, data);
 
         //greyscale
