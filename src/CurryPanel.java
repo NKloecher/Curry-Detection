@@ -29,6 +29,8 @@ public class CurryPanel extends Application {
 
     private VideoCapture camera;
     private Mat frame = new Mat();
+    private Mat original = new Mat();
+    private Mat binaryFrame = new Mat();
     private Mat testingMat = new Mat();
 
     private final GridPane pane = new GridPane();
@@ -69,17 +71,26 @@ public class CurryPanel extends Application {
         camera = new VideoCapture(0);
         startCamera();
 
-        greyscaleImage.setOnMouseClicked(event -> detectionImage.setImage(SwingFXUtils.toFXImage(testThreshStill(), null)));
+        thresholdImage.setOnMouseClicked(event -> detectionImage.setImage(SwingFXUtils.toFXImage(testThreshStill(), null)));
     }
 
     private BufferedImage testThreshStill(){
         //Imgproc.cvtColor(frame, testingMat, Imgproc.COLOR_BGR2GRAY, 1);
         //Core.bitwise_not(testingMat, testingMat);
         //return matToBufferedImage(testingMat);
-        Imgproc.cvtColor(frame, testingMat, Imgproc.COLOR_BGR2GRAY, 1);
-        Imgproc.GaussianBlur(testingMat, testingMat, new Size(9,9), 0);
-        Imgproc.adaptiveThreshold(testingMat,testingMat, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY, 21,5);
-        return matToBufferedImage(testingMat);
+        List<MatOfPoint> list = new ArrayList<>();
+        Imgproc.findContours(binaryFrame, list, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+        final List<Rect> rects = list.stream().map(Imgproc::boundingRect).collect(Collectors.toList());
+        for (Rect rect : rects) {
+            Imgproc.rectangle(original, rect.tl(), rect.br(), new Scalar(255, 70, 70), 1);
+        }
+
+//        Imgproc.cvtColor(frame, testingMat, Imgproc.COLOR_BGR2GRAY, 1);
+//        Imgproc.GaussianBlur(testingMat, testingMat, new Size(9,9), 0);
+//        Imgproc.adaptiveThreshold(testingMat,testingMat, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY, 21,5);
+//        return matToBufferedImage(testingMat);
+
+        return matToBufferedImage(original);
     }
 
     private void startCamera() {
@@ -117,7 +128,7 @@ public class CurryPanel extends Application {
     }
 
     private void processFrame(Mat frame) {
-        Mat original = new Mat();
+        frame.copyTo(original);
         Mat gray = new Mat();
         Mat threshold = new Mat();
         //detection?
@@ -141,24 +152,15 @@ public class CurryPanel extends Application {
         gray.get(0,0,data2);
 
         //thresholding
-        System.out.println("before");
         Imgproc.GaussianBlur(gray,threshold, new Size(9,9),0);
-        Imgproc.adaptiveThreshold(threshold,threshold, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY, 21,5);
-        //Mat roi = new Mat(threshold, new Rect(0,200,600,200));
-        List<MatOfPoint> list = new ArrayList<>();
-        Imgproc.findContours(threshold, list, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
-        final List<Rect> rects = list.stream().map(Imgproc::boundingRect).collect(Collectors.toList());
-        for (int i = 0; i < rects.size(); i++) {
-            Imgproc.rectangle(threshold, rects.get(i).tl(), rects.get(i).br(), new Scalar(255,70,70),1);
-        }
-        System.out.println(String.format("size:%d - height:%d - width:%d", rects.size(), rects.get(0).height,rects.get(0).width));
-        BufferedImage thresImage = new BufferedImage(threshold.width(), threshold.height(), BufferedImage.TYPE_BYTE_GRAY);
+        Imgproc.adaptiveThreshold(threshold,binaryFrame, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY, 21,5);
+        BufferedImage thresImage = new BufferedImage(binaryFrame.width(), binaryFrame.height(), BufferedImage.TYPE_BYTE_GRAY);
         WritableRaster raster3 = thresImage.getRaster();
         DataBufferByte dataBufferByte3 = (DataBufferByte) raster3.getDataBuffer();
         byte[] data3 = dataBufferByte3.getData();
 
 
-        threshold.get(0,0,data3);
+        binaryFrame.get(0,0,data3);
 
 
         originalImage.setImage(SwingFXUtils.toFXImage(image,null));
