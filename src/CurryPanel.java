@@ -1,23 +1,18 @@
 import javafx.application.Application;
 import javafx.embed.swing.SwingFXUtils;
-import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 import org.opencv.core.*;
-import org.opencv.core.Point;
 import org.opencv.imgproc.Imgproc;
-import org.opencv.video.Video;
 import org.opencv.videoio.VideoCapture;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.awt.image.WritableRaster;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +23,9 @@ import java.util.stream.Collectors;
 
 @SuppressWarnings("Duplicates")
 public class CurryPanel extends Application {
+    /*
+    TODO Dynamic binary image, last image for detection/contours
+     */
 
     private VideoCapture camera;
     private Mat frame = new Mat();
@@ -64,17 +62,17 @@ public class CurryPanel extends Application {
         //pane.add(testStillImage,0,1);
         pane.add(detectionImage,1,1);
 
-        stage.setTitle("TestFX");
+        stage.setTitle("CurryDetectionFX");
         stage.setScene(scene);
 
         stage.show();
         camera = new VideoCapture(0);
         startCamera();
 
-        thresholdImage.setOnMouseClicked(event -> detectionImage.setImage(SwingFXUtils.toFXImage(q(), null)));
+        greyscaleImage.setOnMouseClicked(event -> detectionImage.setImage(SwingFXUtils.toFXImage(testThreshStill(), null)));
     }
 
-    private BufferedImage q(){
+    private BufferedImage testThreshStill(){
         //Imgproc.cvtColor(frame, testingMat, Imgproc.COLOR_BGR2GRAY, 1);
         //Core.bitwise_not(testingMat, testingMat);
         //return matToBufferedImage(testingMat);
@@ -87,11 +85,7 @@ public class CurryPanel extends Application {
     private void startCamera() {
         Runnable grabFrame = () -> {
             camera.read(frame);
-            t(frame);
-//            BufferedImage image = matToBufferedImage(frame);
-//            originalImage.setImage(SwingFXUtils.toFXImage(image,null));
-//            BufferedImage grey = grayscale(image);
-//            greyscaleImage.setImage(SwingFXUtils.toFXImage(grey,null));
+            processFrame(frame);
         };
 
         ScheduledExecutorService s = Executors.newSingleThreadScheduledExecutor();
@@ -122,7 +116,7 @@ public class CurryPanel extends Application {
         return img;
     }
 
-    private void t(Mat frame) {
+    private void processFrame(Mat frame) {
         Mat original = new Mat();
         Mat gray = new Mat();
         Mat threshold = new Mat();
@@ -147,17 +141,17 @@ public class CurryPanel extends Application {
         gray.get(0,0,data2);
 
         //thresholding
-        //System.out.println("before");
+        System.out.println("before");
         Imgproc.GaussianBlur(gray,threshold, new Size(9,9),0);
-        //Imgproc.adaptiveThreshold(threshold,threshold, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY, 20,5);
+        Imgproc.adaptiveThreshold(threshold,threshold, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY, 21,5);
         //Mat roi = new Mat(threshold, new Rect(0,200,600,200));
-        //List<MatOfPoint> list = new ArrayList<>();
-        //Imgproc.findContours(roi, list, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE, new Point(0,200));
-        //final List<Rect> rects = list.stream().map(Imgproc::boundingRect).collect(Collectors.toList());
-        //for (int i = 0; i < rects.size(); i++) {
-        //    Imgproc.rectangle(threshold, rects.get(i).tl(), rects.get(i).br(), new Scalar(255,70,70),1);
-        //}
-        //System.out.println(String.format("size:%d - heigh:%d - width:%d", rects.size(), rects.get(0).height,rects.get(0).width));
+        List<MatOfPoint> list = new ArrayList<>();
+        Imgproc.findContours(threshold, list, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+        final List<Rect> rects = list.stream().map(Imgproc::boundingRect).collect(Collectors.toList());
+        for (int i = 0; i < rects.size(); i++) {
+            Imgproc.rectangle(threshold, rects.get(i).tl(), rects.get(i).br(), new Scalar(255,70,70),1);
+        }
+        System.out.println(String.format("size:%d - height:%d - width:%d", rects.size(), rects.get(0).height,rects.get(0).width));
         BufferedImage thresImage = new BufferedImage(threshold.width(), threshold.height(), BufferedImage.TYPE_BYTE_GRAY);
         WritableRaster raster3 = thresImage.getRaster();
         DataBufferByte dataBufferByte3 = (DataBufferByte) raster3.getDataBuffer();
