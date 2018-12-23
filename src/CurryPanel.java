@@ -7,8 +7,8 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
-import org.opencv.core.Core;
-import org.opencv.core.Mat;
+import org.opencv.core.*;
+import org.opencv.core.Point;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.video.Video;
 import org.opencv.videoio.VideoCapture;
@@ -17,16 +17,21 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.awt.image.WritableRaster;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @SuppressWarnings("Duplicates")
 public class CurryPanel extends Application {
 
     private VideoCapture camera;
     private Mat frame = new Mat();
+    private Mat testingMat = new Mat();
 
     private final GridPane pane = new GridPane();
     private final ImageView originalImage = new ImageView();
@@ -55,8 +60,9 @@ public class CurryPanel extends Application {
         pane.add(originalImage,0,0);
         pane.add(greyscaleImage,1,0);
 
-        //pane.add(thresholdImage,0,1);
-        //pane.add(detectionImage,1,1);
+        pane.add(thresholdImage,0,1);
+        //pane.add(testStillImage,0,1);
+        pane.add(detectionImage,1,1);
 
         stage.setTitle("TestFX");
         stage.setScene(scene);
@@ -64,6 +70,18 @@ public class CurryPanel extends Application {
         stage.show();
         camera = new VideoCapture(0);
         startCamera();
+
+        thresholdImage.setOnMouseClicked(event -> detectionImage.setImage(SwingFXUtils.toFXImage(q(), null)));
+    }
+
+    private BufferedImage q(){
+        //Imgproc.cvtColor(frame, testingMat, Imgproc.COLOR_BGR2GRAY, 1);
+        //Core.bitwise_not(testingMat, testingMat);
+        //return matToBufferedImage(testingMat);
+        Imgproc.cvtColor(frame, testingMat, Imgproc.COLOR_BGR2GRAY, 1);
+        Imgproc.GaussianBlur(testingMat, testingMat, new Size(9,9), 0);
+        Imgproc.adaptiveThreshold(testingMat,testingMat, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY, 21,5);
+        return matToBufferedImage(testingMat);
     }
 
     private void startCamera() {
@@ -129,8 +147,18 @@ public class CurryPanel extends Application {
         gray.get(0,0,data2);
 
         //thresholding
-        Imgproc.adaptiveThreshold(frame,threshold, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY, 20,5);
-        BufferedImage thresImage = new BufferedImage(threshold.width(), threshold.height(), BufferedImage.TYPE_BYTE_BINARY);
+        //System.out.println("before");
+        Imgproc.GaussianBlur(gray,threshold, new Size(9,9),0);
+        //Imgproc.adaptiveThreshold(threshold,threshold, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY, 20,5);
+        //Mat roi = new Mat(threshold, new Rect(0,200,600,200));
+        //List<MatOfPoint> list = new ArrayList<>();
+        //Imgproc.findContours(roi, list, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE, new Point(0,200));
+        //final List<Rect> rects = list.stream().map(Imgproc::boundingRect).collect(Collectors.toList());
+        //for (int i = 0; i < rects.size(); i++) {
+        //    Imgproc.rectangle(threshold, rects.get(i).tl(), rects.get(i).br(), new Scalar(255,70,70),1);
+        //}
+        //System.out.println(String.format("size:%d - heigh:%d - width:%d", rects.size(), rects.get(0).height,rects.get(0).width));
+        BufferedImage thresImage = new BufferedImage(threshold.width(), threshold.height(), BufferedImage.TYPE_BYTE_GRAY);
         WritableRaster raster3 = thresImage.getRaster();
         DataBufferByte dataBufferByte3 = (DataBufferByte) raster3.getDataBuffer();
         byte[] data3 = dataBufferByte3.getData();
@@ -158,7 +186,7 @@ public class CurryPanel extends Application {
         DataBufferByte dataBuffer = (DataBufferByte) raster.getDataBuffer();
         byte[] data = dataBuffer.getData();
 
-        Core.flip(frame,frame, 1);//todo maybe not here
+        Core.flip(frame,frame, 1);
         frame.get(0, 0, data);
 
         return image;
