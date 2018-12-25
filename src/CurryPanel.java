@@ -5,6 +5,8 @@ import javafx.scene.control.Slider;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import org.opencv.core.*;
@@ -60,19 +62,33 @@ public class CurryPanel extends Application {
 
         ImageView testStillImage = new ImageView(new Image(new File("res/flower.jpg").toURI().toString()));
 
-        pane.add(originalImage,0,0);
-        pane.add(greyscaleImage,1,0);
+        HBox topBox = new HBox();
+        StackPane originalImagePane = new StackPane();
+        originalImagePane.setPrefSize(640,480);
+        originalImagePane.getChildren().add(originalImage);
+        StackPane greyImagePane = new StackPane();
+        greyImagePane.getChildren().add(greyscaleImage);
+        topBox.getChildren().addAll(originalImagePane, greyImagePane);
 
-        pane.add(thresholdImage,0,1);
+
+        //pane.add(originalImage,0,0);
+        //pane.add(greyscaleImage,1,0);
+        pane.add(topBox, 0,0, 2, 1);
+
+        HBox bottomBox = new HBox();
+        bottomBox.getChildren().addAll(thresholdImage, detectionImage);
+
+        //pane.add(thresholdImage,0,1);
         //pane.add(testStillImage,0,1);
-        pane.add(detectionImage,1,1);
+        //pane.add(detectionImage,1,1);
+        pane.add(bottomBox,0,1,2,1);
 
         VBox settingsBox = new VBox();
         Slider s1 = new Slider();
         Slider s2 = new Slider();
         Slider s3 = new Slider();
         settingsBox.getChildren().addAll(s1,s2,s3);
-        pane.add(settingsBox, 0,2);
+        pane.add(settingsBox, 0,3);
 
         stage.setTitle("CurryDetectionFX");
         stage.setScene(scene);
