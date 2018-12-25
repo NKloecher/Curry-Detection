@@ -28,10 +28,7 @@ import java.util.stream.Collectors;
 @SuppressWarnings("Duplicates")
 public class CurryPanel extends Application {
     /*
-    TODO Dynamic binary image, last image for detection/contours dDone
-        VBox with slider options (fx thresholding) - init
-        Dynamic contour showing
-        Replay of video
+    TODO VBox with slider options (fx thresholding) - init
         -- symbol marks of todoos
      */
 
@@ -40,6 +37,8 @@ public class CurryPanel extends Application {
     private Mat original = new Mat();
     private Mat binaryFrame = new Mat();
     private Mat testingMat = new Mat();
+
+    private ScheduledExecutorService frameService;
 
     private final GridPane pane = new GridPane();
     private final ImageView originalImage = new ImageView();
@@ -87,16 +86,16 @@ public class CurryPanel extends Application {
         //pane.add(testStillImage,0,1);
         pane.add(detectionImage,1,1);
 
-        VBox settingsBox = new VBox();
-        Slider s1 = new Slider(0,100,0);
-        Slider s2 = new Slider(0,100,0);
-        Slider s3 = new Slider(0,100,0);
-        s1.setVisible(true);
-        settingsBox.getChildren().add(s1);
-        settingsBox.getChildren().add(s2);
-        System.out.println(s3.isVisible());
-        System.out.println(GridPane.getColumnSpan(settingsBox));
-        pane.add(settingsBox, 2,0);
+//        VBox settingsBox = new VBox();
+//        Slider s1 = new Slider(0,100,0);
+//        Slider s2 = new Slider(0,100,0);
+//        Slider s3 = new Slider(0,100,0);
+//        s1.setVisible(true);
+//        settingsBox.getChildren().add(s1);
+//        settingsBox.getChildren().add(s2);
+//        System.out.println(s3.isVisible());
+//        System.out.println(GridPane.getColumnSpan(settingsBox));
+//        pane.add(settingsBox, 2,0);
 
         stage.setTitle("CurryDetectionFX");
         stage.setScene(scene);
@@ -106,68 +105,49 @@ public class CurryPanel extends Application {
         camera = new VideoCapture("res/virb.mp4");
         startCamera();
 
-        thresholdImage.setOnMouseClicked(event -> detectionImage.setImage(SwingFXUtils.toFXImage(testThreshStill(), null)));
+
+        //thresholdImage.setOnMouseClicked(event -> detectionImage.setImage(SwingFXUtils.toFXImage(testThreshStill(), null)));
     }
 
+    @Deprecated
     private BufferedImage testThreshStill(){
-        //Imgproc.cvtColor(frame, testingMat, Imgproc.COLOR_BGR2GRAY, 1);
-        //Core.bitwise_not(testingMat, testingMat);
-        //return matToBufferedImage(testingMat);
         List<MatOfPoint> list = new ArrayList<>();
         Imgproc.findContours(binaryFrame, list, new Mat(), Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE);
         final List<Rect> rects = list.stream().map(Imgproc::boundingRect).collect(Collectors.toList());
         for (Rect rect : rects) {
             Imgproc.rectangle(original, rect.tl(), rect.br(), new Scalar(255, 70, 70), 1);
         }
-
-//        Imgproc.cvtColor(frame, testingMat, Imgproc.COLOR_BGR2GRAY, 1);
-//        Imgproc.GaussianBlur(testingMat, testingMat, new Size(9,9), 0);
-//        Imgproc.adaptiveThreshold(testingMat,testingMat, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY, 21,5);
-//        return matToBufferedImage(testingMat);
-
         return matToBufferedImage(original);
     }
 
     private void startCamera() {
         Runnable grabFrame = () -> {
-            camera.read(frame);
-            processFrame(frame);
+            if (camera.read(frame)) {
+                processFrame(frame);
+            }
+            else {
+                try {
+                    Thread.sleep(20);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                camera.release();
+                camera.open("res/virb.mp4");
+            }
         };
 
-        ScheduledExecutorService s = Executors.newSingleThreadScheduledExecutor();
-        s.scheduleAtFixedRate(grabFrame, 0, 20, TimeUnit.MILLISECONDS);
-    }
+        frameService = Executors.newSingleThreadScheduledExecutor();
+        frameService.scheduleAtFixedRate(grabFrame, 0, 20, TimeUnit.MILLISECONDS);
 
-
-
-    private BufferedImage grayscale(BufferedImage img) {
-        for (int i = 0; i < img.getHeight(); i++) {
-            for (int j = 0; j < img.getWidth(); j++) {
-                Color c = new Color(img.getRGB(j, i));
-
-                int red = (int) (c.getRed() * 0.299);
-                int green = (int) (c.getGreen() * 0.587);
-                int blue = (int) (c.getBlue() * 0.114);
-
-                Color newColor =
-                        new Color(
-                                red + green + blue,
-                                red + green + blue,
-                                red + green + blue);
-
-                img.setRGB(j, i, newColor.getRGB());
-            }
-        }
-
-        return img;
     }
 
     private void processFrame(Mat frame) {
+        //todo...   use the mat to buffered image method
         frame.copyTo(original);
         //Core.flip(original,original,1);
         Mat gray = new Mat();
         Mat threshold = new Mat();
-        //detection?
+
 
         //colour
         BufferedImage image = new BufferedImage(frame.width(), frame.height(), BufferedImage.TYPE_3BYTE_BGR);
@@ -198,11 +178,17 @@ public class CurryPanel extends Application {
 
         binaryFrame.get(0,0,data3);
 
+        List<MatOfPoint> list = new ArrayList<>();
+        Imgproc.findContours(binaryFrame, list, new Mat(), Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE);
+        final List<Rect> rects = list.stream().map(Imgproc::boundingRect).collect(Collectors.toList());
+        for (Rect rect : rects) {
+            Imgproc.rectangle(original, rect.tl(), rect.br(), new Scalar(255, 70, 70), 1);
+        }
 
         originalImage.setImage(SwingFXUtils.toFXImage(image,null));
         greyscaleImage.setImage(SwingFXUtils.toFXImage(grayImage,null));
         thresholdImage.setImage(SwingFXUtils.toFXImage(thresImage, null));
-
+        detectionImage.setImage(SwingFXUtils.toFXImage(matToBufferedImage(original),null));
     }
 
     private BufferedImage matToBufferedImage(Mat frame) {
