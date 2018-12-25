@@ -28,8 +28,11 @@ import java.util.stream.Collectors;
 @SuppressWarnings("Duplicates")
 public class CurryPanel extends Application {
     /*
-    TODO Dynamic binary image, last image for detection/contours
-        VBox with slider options (fx thresholding)
+    TODO Dynamic binary image, last image for detection/contours dDone
+        VBox with slider options (fx thresholding) - init
+        Dynamic contour showing
+        Replay of video
+        -- symbol marks of todoos
      */
 
     private VideoCapture camera;
@@ -62,39 +65,45 @@ public class CurryPanel extends Application {
 
         ImageView testStillImage = new ImageView(new Image(new File("res/flower.jpg").toURI().toString()));
 
-        HBox topBox = new HBox();
-        StackPane originalImagePane = new StackPane();
-        originalImagePane.setPrefSize(640,480);
-        originalImagePane.getChildren().add(originalImage);
-        StackPane greyImagePane = new StackPane();
-        greyImagePane.getChildren().add(greyscaleImage);
-        topBox.getChildren().addAll(originalImagePane, greyImagePane);
+        originalImage.setPreserveRatio(true);
+        originalImage.setFitWidth(640);
+        originalImage.setFitHeight(480);
+        greyscaleImage.setPreserveRatio(true);
+        greyscaleImage.setFitWidth(640);
+        greyscaleImage.setFitHeight(480);
+
+        thresholdImage.setPreserveRatio(true);
+        thresholdImage.setFitWidth(640);
+        thresholdImage.setFitHeight(480);
+        detectionImage.setPreserveRatio(true);
+        detectionImage.setFitWidth(640);
+        detectionImage.setFitHeight(480);
 
 
-        //pane.add(originalImage,0,0);
-        //pane.add(greyscaleImage,1,0);
-        pane.add(topBox, 0,0, 2, 1);
+        pane.add(originalImage, 0, 0);
+        pane.add(greyscaleImage, 1, 0);
 
-        HBox bottomBox = new HBox();
-        bottomBox.getChildren().addAll(thresholdImage, detectionImage);
-
-        //pane.add(thresholdImage,0,1);
+        pane.add(thresholdImage,0,1);
         //pane.add(testStillImage,0,1);
-        //pane.add(detectionImage,1,1);
-        pane.add(bottomBox,0,1,2,1);
+        pane.add(detectionImage,1,1);
 
         VBox settingsBox = new VBox();
-        Slider s1 = new Slider();
-        Slider s2 = new Slider();
-        Slider s3 = new Slider();
-        settingsBox.getChildren().addAll(s1,s2,s3);
-        pane.add(settingsBox, 0,3);
+        Slider s1 = new Slider(0,100,0);
+        Slider s2 = new Slider(0,100,0);
+        Slider s3 = new Slider(0,100,0);
+        s1.setVisible(true);
+        settingsBox.getChildren().add(s1);
+        settingsBox.getChildren().add(s2);
+        System.out.println(s3.isVisible());
+        System.out.println(GridPane.getColumnSpan(settingsBox));
+        pane.add(settingsBox, 2,0);
 
         stage.setTitle("CurryDetectionFX");
         stage.setScene(scene);
 
         stage.show();
-        camera = new VideoCapture(0);
+        //camera = new VideoCapture(0);
+        camera = new VideoCapture("res/virb.mp4");
         startCamera();
 
         thresholdImage.setOnMouseClicked(event -> detectionImage.setImage(SwingFXUtils.toFXImage(testThreshStill(), null)));
@@ -105,7 +114,7 @@ public class CurryPanel extends Application {
         //Core.bitwise_not(testingMat, testingMat);
         //return matToBufferedImage(testingMat);
         List<MatOfPoint> list = new ArrayList<>();
-        Imgproc.findContours(binaryFrame, list, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+        Imgproc.findContours(binaryFrame, list, new Mat(), Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE);
         final List<Rect> rects = list.stream().map(Imgproc::boundingRect).collect(Collectors.toList());
         for (Rect rect : rects) {
             Imgproc.rectangle(original, rect.tl(), rect.br(), new Scalar(255, 70, 70), 1);
@@ -155,7 +164,7 @@ public class CurryPanel extends Application {
 
     private void processFrame(Mat frame) {
         frame.copyTo(original);
-        Core.flip(original,original,1);
+        //Core.flip(original,original,1);
         Mat gray = new Mat();
         Mat threshold = new Mat();
         //detection?
@@ -166,7 +175,7 @@ public class CurryPanel extends Application {
         DataBufferByte dataBuffer = (DataBufferByte) raster.getDataBuffer();
         byte[] data = dataBuffer.getData();
 
-        Core.flip(frame,frame, 1);//todo.... don't process on flipped image
+        //Core.flip(frame,frame, 1);//todo.... don't process on flipped image
         frame.get(0, 0, data);
 
         //greyscale
@@ -209,7 +218,7 @@ public class CurryPanel extends Application {
         DataBufferByte dataBuffer = (DataBufferByte) raster.getDataBuffer();
         byte[] data = dataBuffer.getData();
 
-        Core.flip(frame,frame, 1);
+        //Core.flip(frame,frame, 1);
         frame.get(0, 0, data);
 
         return image;
