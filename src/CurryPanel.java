@@ -1,19 +1,20 @@
 import javafx.application.Application;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.geometry.Insets;
 import javafx.scene.Scene;
+import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import org.opencv.core.*;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.videoio.VideoCapture;
 
-import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.awt.image.WritableRaster;
@@ -29,6 +30,7 @@ import java.util.stream.Collectors;
 public class CurryPanel extends Application {
     /*
     TODO VBox with slider options (fx thresholding) - init
+        DNN/Object-Detection of container-ids → New Class probably, work on still images first
         -- symbol marks of todoos
      */
 
@@ -39,7 +41,10 @@ public class CurryPanel extends Application {
     private Mat testingMat = new Mat();
 
     private ScheduledExecutorService frameService;
+    private int blocksize = 21;
+    private int C = 5;
 
+    private final TabPane tabPane = new TabPane();
     private final GridPane pane = new GridPane();
     private final ImageView originalImage = new ImageView();
     private final ImageView greyscaleImage = new ImageView();
@@ -57,13 +62,21 @@ public class CurryPanel extends Application {
     @Override
     public void start(Stage stage) {
 
-        Scene scene = new Scene(pane);
+        Tab gridTab = new Tab();
+        gridTab.setContent(pane);
+        gridTab.setText("Contouring");
+        Tab otherTab = new Tab();
+        otherTab.setText("Other Tab");
+        tabPane.getTabs().addAll(gridTab,otherTab);
+
+        Scene scene = new Scene(tabPane);
         pane.setMinSize(1400, 980);
         pane.setHgap(10);
         pane.setVgap(10);
 
         ImageView testStillImage = new ImageView(new Image(new File("res/flower.jpg").toURI().toString()));
 
+        //because imageviews are funky... (for video)
         originalImage.setPreserveRatio(true);
         originalImage.setFitWidth(640);
         originalImage.setFitHeight(480);
@@ -86,16 +99,30 @@ public class CurryPanel extends Application {
         //pane.add(testStillImage,0,1);
         pane.add(detectionImage,1,1);
 
-//        VBox settingsBox = new VBox();
-//        Slider s1 = new Slider(0,100,0);
-//        Slider s2 = new Slider(0,100,0);
-//        Slider s3 = new Slider(0,100,0);
-//        s1.setVisible(true);
-//        settingsBox.getChildren().add(s1);
-//        settingsBox.getChildren().add(s2);
-//        System.out.println(s3.isVisible());
-//        System.out.println(GridPane.getColumnSpan(settingsBox));
-//        pane.add(settingsBox, 2,0);
+        VBox settingsBox = new VBox();
+        settingsBox.setPadding(new Insets(7,0,0,0));
+        settingsBox.setSpacing(5);
+        Label labelBlocksize = new Label(String.format("Blocksize: %d", blocksize));
+        Slider sliderBlocksize = new Slider(7,131,21);
+
+        sliderBlocksize.setBlockIncrement(2);
+        sliderBlocksize.valueProperty().addListener(((observableValue, oldVal, newVal) -> {
+            int value = newVal.intValue();
+            blocksize = value % 2 == 0 ? value + 1 : value; //blocksize non-even number > 5
+            labelBlocksize.setText(String.format("Blocksize: %d", blocksize));
+        } ));
+
+        Label labelCval = new Label("C: 5");
+        Slider sliderCval = new Slider(-10,10,5);
+        sliderCval.setBlockIncrement(1);
+        sliderCval.valueProperty().addListener((observableValue, oldVal, newVal) -> {
+            C = newVal.intValue();
+            labelCval.setText(String.format("C: %d", C));
+        });
+
+
+        settingsBox.getChildren().addAll(labelBlocksize, sliderBlocksize, labelCval, sliderCval);
+        pane.add(settingsBox, 2,0);
 
         stage.setTitle("CurryDetectionFX");
         stage.setScene(scene);
@@ -109,7 +136,6 @@ public class CurryPanel extends Application {
         //thresholdImage.setOnMouseClicked(event -> detectionImage.setImage(SwingFXUtils.toFXImage(testThreshStill(), null)));
     }
 
-    @Deprecated
     private BufferedImage testThreshStill(){
         List<MatOfPoint> list = new ArrayList<>();
         Imgproc.findContours(binaryFrame, list, new Mat(), Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE);
@@ -169,7 +195,7 @@ public class CurryPanel extends Application {
 
         //thresholding
         Imgproc.GaussianBlur(gray,threshold, new Size(9,9),0);
-        Imgproc.adaptiveThreshold(threshold,binaryFrame, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY, 21,5);
+        Imgproc.adaptiveThreshold(threshold,binaryFrame, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY, blocksize,C);
         BufferedImage thresImage = new BufferedImage(binaryFrame.width(), binaryFrame.height(), BufferedImage.TYPE_BYTE_GRAY);
         WritableRaster raster3 = thresImage.getRaster();
         DataBufferByte dataBufferByte3 = (DataBufferByte) raster3.getDataBuffer();
@@ -182,7 +208,7 @@ public class CurryPanel extends Application {
         Imgproc.findContours(binaryFrame, list, new Mat(), Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE);
         final List<Rect> rects = list.stream().map(Imgproc::boundingRect).collect(Collectors.toList());
         for (Rect rect : rects) {
-            Imgproc.rectangle(original, rect.tl(), rect.br(), new Scalar(255, 70, 70), 1);
+            Imgproc.rectangle(original, rect.tl(), rect.br(), new Scalar(70, 255, 70), 1);
         }
 
         originalImage.setImage(SwingFXUtils.toFXImage(image,null));
