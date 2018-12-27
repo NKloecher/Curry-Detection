@@ -2,16 +2,14 @@ import javafx.application.Application;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
-import javafx.scene.control.Label;
-import javafx.scene.control.Slider;
-import javafx.scene.control.Tab;
-import javafx.scene.control.TabPane;
+import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import org.opencv.core.*;
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.videoio.VideoCapture;
 
@@ -26,30 +24,56 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+
 @SuppressWarnings("Duplicates")
 public class CurryPanel extends Application {
     /*
-    TODO VBox with slider options (fx thresholding) - init
-        DNN/Object-Detection of container-ids → New Class probably, work on still images first
-        -- symbol marks of todoos
+    TODO DNN/Object-Detection of container-ids → New Class probably, work on still images first
+        Custom segmentation and ocr handling
+        more stuff
+     */
+
+    /*  Guide to Frames
+        frame → from camera/video
+        original → copy of frame
+        (grey is local variable)
+        binaryFrame → adaptive threshold
+        contourMatHalf → copy of original + rectangle of contours
+        (other contour local, half-sized)
      */
 
     private VideoCapture camera;
     private Mat frame = new Mat();
     private Mat original = new Mat();
     private Mat binaryFrame = new Mat();
-    private Mat testingMat = new Mat();
+    private Mat contourMatHalf = new Mat();
+    private Mat contourMat = new Mat();
+    //private Mat testingMat = new Mat();
 
-    private ScheduledExecutorService frameService;
+    private boolean paused = false;
     private int blocksize = 21;
     private int C = 5;
 
+    //root
+    private final GridPane root = new GridPane();
     private final TabPane tabPane = new TabPane();
-    private final GridPane pane = new GridPane();
+
+    //first tab
+    private final GridPane firstTabGridPane = new GridPane();
     private final ImageView originalImage = new ImageView();
     private final ImageView greyscaleImage = new ImageView();
     private final ImageView thresholdImage = new ImageView();
     private final ImageView detectionImage = new ImageView();
+
+    //second tab
+    private final ImageView otherView = new ImageView();
+
+    //settings box
+    private final TextArea ocrGuess = new TextArea();
+    private final Button pauseButton = new Button("Pause");
+
+    private CurryDetectioning cd = new CurryDetectioning();
+
 
     static {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
@@ -63,18 +87,19 @@ public class CurryPanel extends Application {
     public void start(Stage stage) {
 
         Tab gridTab = new Tab();
-        gridTab.setContent(pane);
+        gridTab.setContent(firstTabGridPane);
         gridTab.setText("Contouring");
         Tab otherTab = new Tab();
         otherTab.setText("Other Tab");
         tabPane.getTabs().addAll(gridTab,otherTab);
 
-        Scene scene = new Scene(tabPane);
-        pane.setMinSize(1400, 980);
-        pane.setHgap(10);
-        pane.setVgap(10);
+//        root.setPrefSize(640+640+120, 980);
+        Scene scene = new Scene(root);
+        firstTabGridPane.setHgap(10);
+        firstTabGridPane.setVgap(10);
 
         ImageView testStillImage = new ImageView(new Image(new File("res/flower.jpg").toURI().toString()));
+        testStillImage.setFitHeight(0);
 
         //because imageviews are funky... (for video)
         originalImage.setPreserveRatio(true);
@@ -92,12 +117,12 @@ public class CurryPanel extends Application {
         detectionImage.setFitHeight(480);
 
 
-        pane.add(originalImage, 0, 0);
-        pane.add(greyscaleImage, 1, 0);
+        firstTabGridPane.add(originalImage, 0, 0);
+        firstTabGridPane.add(greyscaleImage, 1, 0);
 
-        pane.add(thresholdImage,0,1);
-        //pane.add(testStillImage,0,1);
-        pane.add(detectionImage,1,1);
+        firstTabGridPane.add(thresholdImage,0,1);
+        //firstTabGridPane.add(testStillImage,0,1);
+        firstTabGridPane.add(detectionImage,1,1);
 
         VBox settingsBox = new VBox();
         settingsBox.setPadding(new Insets(7,0,0,0));
@@ -120,34 +145,44 @@ public class CurryPanel extends Application {
             labelCval.setText(String.format("C: %d", C));
         });
 
+        pauseButton.setOnAction(event -> paused = !paused);
 
-        settingsBox.getChildren().addAll(labelBlocksize, sliderBlocksize, labelCval, sliderCval);
-        pane.add(settingsBox, 2,0);
+        settingsBox.getChildren().addAll(labelBlocksize, sliderBlocksize, labelCval, sliderCval, pauseButton, ocrGuess);
+
+        GridPane otherPane = new GridPane();
+        otherPane.add(otherView,0,0);
+        otherTab.setContent(otherPane);
+
+        root.add(tabPane,0,0);
+        root.add(settingsBox, 1,0);
 
         stage.setTitle("CurryDetectionFX");
         stage.setScene(scene);
 
         stage.show();
-        //camera = new VideoCapture(0);
-        camera = new VideoCapture("res/virb.mp4");
+        //camera = new VideoCapture(0); //webcam
+        camera = new VideoCapture("res/virb.mp4"); //video
         startCamera();
+        startGuessing();
 
-
-        //thresholdImage.setOnMouseClicked(event -> detectionImage.setImage(SwingFXUtils.toFXImage(testThreshStill(), null)));
     }
+    private void startGuessing() {
+        Runnable makeGuess = () -> {
+            MatOfByte imagebytes = new MatOfByte();
+            Mat pp = new Mat(original, new Rect(original.width()/2,0,original.width()/2,original.height()));
+            Imgcodecs.imencode(".png", pp, imagebytes);
+            ocrGuess.setText(cd.processImage(imagebytes, blocksize));
+        };
 
-    private BufferedImage testThreshStill(){
-        List<MatOfPoint> list = new ArrayList<>();
-        Imgproc.findContours(binaryFrame, list, new Mat(), Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE);
-        final List<Rect> rects = list.stream().map(Imgproc::boundingRect).collect(Collectors.toList());
-        for (Rect rect : rects) {
-            Imgproc.rectangle(original, rect.tl(), rect.br(), new Scalar(255, 70, 70), 1);
-        }
-        return matToBufferedImage(original);
+        ScheduledExecutorService guessService = Executors.newSingleThreadScheduledExecutor();
+        guessService.scheduleAtFixedRate(makeGuess, 200, 100, TimeUnit.MILLISECONDS);
     }
 
     private void startCamera() {
         Runnable grabFrame = () -> {
+            if (paused) {
+                return;
+            }
             if (camera.read(frame)) {
                 processFrame(frame);
             }
@@ -162,7 +197,7 @@ public class CurryPanel extends Application {
             }
         };
 
-        frameService = Executors.newSingleThreadScheduledExecutor();
+        ScheduledExecutorService frameService = Executors.newSingleThreadScheduledExecutor();
         frameService.scheduleAtFixedRate(grabFrame, 0, 20, TimeUnit.MILLISECONDS);
 
     }
@@ -170,51 +205,51 @@ public class CurryPanel extends Application {
     private void processFrame(Mat frame) {
         //todo...   use the mat to buffered image method
         frame.copyTo(original);
+        frame.copyTo(contourMat);
         //Core.flip(original,original,1);
         Mat gray = new Mat();
-        Mat threshold = new Mat();
-
 
         //colour
-        BufferedImage image = new BufferedImage(frame.width(), frame.height(), BufferedImage.TYPE_3BYTE_BGR);
-        WritableRaster raster = image.getRaster();
-        DataBufferByte dataBuffer = (DataBufferByte) raster.getDataBuffer();
-        byte[] data = dataBuffer.getData();
+        BufferedImage image = matToBufferedImage(frame);
 
-        //Core.flip(frame,frame, 1);//todo.... don't process on flipped image
-        frame.get(0, 0, data);
 
         //greyscale
         Imgproc.cvtColor(frame,gray,Imgproc.COLOR_BGR2GRAY);
-        BufferedImage grayImage = new BufferedImage(gray.width(), frame.height(), BufferedImage.TYPE_BYTE_GRAY);
-        WritableRaster raster2 = grayImage.getRaster();
-        DataBufferByte dataBufferByte2 = (DataBufferByte) raster2.getDataBuffer();
-        byte[] data2 = dataBufferByte2.getData();
+        BufferedImage grayImage = matToBufferedImage(gray);
 
-        gray.get(0,0,data2);
 
         //thresholding
-        Imgproc.GaussianBlur(gray,threshold, new Size(9,9),0);
-        Imgproc.adaptiveThreshold(threshold,binaryFrame, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY, blocksize,C);
-        BufferedImage thresImage = new BufferedImage(binaryFrame.width(), binaryFrame.height(), BufferedImage.TYPE_BYTE_GRAY);
-        WritableRaster raster3 = thresImage.getRaster();
-        DataBufferByte dataBufferByte3 = (DataBufferByte) raster3.getDataBuffer();
-        byte[] data3 = dataBufferByte3.getData();
+        Imgproc.GaussianBlur(gray,binaryFrame, new Size(9,9),0);
+        Imgproc.adaptiveThreshold(binaryFrame,binaryFrame, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY, blocksize,C);
+        BufferedImage threshImage = matToBufferedImage(binaryFrame);
 
 
-        binaryFrame.get(0,0,data3);
-
+        //Contours
         List<MatOfPoint> list = new ArrayList<>();
         Imgproc.findContours(binaryFrame, list, new Mat(), Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE);
         final List<Rect> rects = list.stream().map(Imgproc::boundingRect).collect(Collectors.toList());
         for (Rect rect : rects) {
-            Imgproc.rectangle(original, rect.tl(), rect.br(), new Scalar(70, 255, 70), 1);
+            Imgproc.rectangle(contourMat, rect.tl(), rect.br(), new Scalar(70, 255, 70), 1);
         }
+
+        //2nd Contours
+        Mat pp = new Mat(frame, new Rect(original.width()/2,0,original.width()/2,original.height()));
+        Mat ppBin = new Mat(binaryFrame, new Rect(original.width()/2,0,original.width()/2,original.height()));
+        pp.copyTo(contourMatHalf);
+        List<MatOfPoint> list2 = new ArrayList<>();
+        Imgproc.findContours(ppBin, list2, new Mat(), Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE);
+        final List<Rect> rects2 = list2.stream().map(Imgproc::boundingRect).collect(Collectors.toList());
+        for (Rect rect : rects2) {
+            Imgproc.rectangle(contourMatHalf, rect.tl(), rect.br(), new Scalar(70, 255, 70), 1);
+        }
+
+        otherView.setImage(SwingFXUtils.toFXImage(matToBufferedImage(contourMatHalf), null));
+
 
         originalImage.setImage(SwingFXUtils.toFXImage(image,null));
         greyscaleImage.setImage(SwingFXUtils.toFXImage(grayImage,null));
-        thresholdImage.setImage(SwingFXUtils.toFXImage(thresImage, null));
-        detectionImage.setImage(SwingFXUtils.toFXImage(matToBufferedImage(original),null));
+        thresholdImage.setImage(SwingFXUtils.toFXImage(threshImage, null));
+        detectionImage.setImage(SwingFXUtils.toFXImage(matToBufferedImage(contourMat),null));
     }
 
     private BufferedImage matToBufferedImage(Mat frame) {
