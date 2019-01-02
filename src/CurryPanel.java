@@ -161,15 +161,17 @@ public class CurryPanel extends Application {
 
         stage.show();
         //camera = new VideoCapture(0); //webcam
-        camera = new VideoCapture("res/virb.mp4"); //video
+//        camera = new VideoCapture("res/virb.mp4"); //video
+        camera = new VideoCapture("res/cutOut.mp4");
         startCamera();
         startGuessing();
 
     }
     private void startGuessing() {
         Runnable makeGuess = () -> {
+            //if (frame.empty() || paused) return;
             MatOfByte imagebytes = new MatOfByte();
-            Mat pp = new Mat(original, new Rect(original.width()/2,0,original.width()/2,original.height()));
+            Mat pp = new Mat(original, new Rect(original.width()/3,original.height()/4,original.width()/4,original.height()/4*3));
             Imgcodecs.imencode(".png", pp, imagebytes);
             ocrGuess.setText(cd.processImage(imagebytes, blocksize));
         };
@@ -193,7 +195,8 @@ public class CurryPanel extends Application {
                     e.printStackTrace();
                 }
                 camera.release();
-                camera.open("res/virb.mp4");
+//                camera.open("res/virb.mp4");
+                camera.open("res/cutOut.mp4");
             }
         };
 
@@ -203,7 +206,6 @@ public class CurryPanel extends Application {
     }
 
     private void processFrame(Mat frame) {
-        //todo...   use the mat to buffered image method
         frame.copyTo(original);
         frame.copyTo(contourMat);
         //Core.flip(original,original,1);
@@ -211,7 +213,6 @@ public class CurryPanel extends Application {
 
         //colour
         BufferedImage image = matToBufferedImage(frame);
-
 
         //greyscale
         Imgproc.cvtColor(frame,gray,Imgproc.COLOR_BGR2GRAY);
@@ -232,9 +233,12 @@ public class CurryPanel extends Application {
             Imgproc.rectangle(contourMat, rect.tl(), rect.br(), new Scalar(70, 255, 70), 1);
         }
 
+
         //2nd Contours
-        Mat pp = new Mat(frame, new Rect(original.width()/2,0,original.width()/2,original.height()));
-        Mat ppBin = new Mat(binaryFrame, new Rect(original.width()/2,0,original.width()/2,original.height()));
+//        Mat pp = new Mat(frame, new Rect(original.width()/2,0,original.width()/2,original.height()));
+//        Mat ppBin = new Mat(binaryFrame, new Rect(original.width()/2,0,original.width()/2,original.height()));
+        Mat pp = new Mat(frame, new Rect(original.width()/3,original.height()/4,original.width()/3,original.height()/4*3));
+        Mat ppBin = new Mat(binaryFrame, new Rect(original.width()/3,original.height()/4,original.width()/4,original.height()/4*3));
         pp.copyTo(contourMatHalf);
         List<MatOfPoint> list2 = new ArrayList<>();
         Imgproc.findContours(ppBin, list2, new Mat(), Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE);
@@ -244,7 +248,6 @@ public class CurryPanel extends Application {
         }
 
         otherView.setImage(SwingFXUtils.toFXImage(matToBufferedImage(contourMatHalf), null));
-
 
         originalImage.setImage(SwingFXUtils.toFXImage(image,null));
         greyscaleImage.setImage(SwingFXUtils.toFXImage(grayImage,null));

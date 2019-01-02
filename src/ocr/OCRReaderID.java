@@ -292,7 +292,6 @@ public class OCRReaderID {
             "MSUU 284007-9",
             "FCBU 857345-1",
             "CAUU 130074-2",
-            "CAUU 130094-8",
             "TITU 825191-0",
             "TCIU 089040-1",
             "TCIU 086058-3",
@@ -868,7 +867,7 @@ public class OCRReaderID {
             String bestGuessFromAI = normalGuesses.guesses[lstein.get(0).get(0)];
             String bestGuessWithLS = TEST_IDS.get(lstein.get(1).get(0));
 
-            //System.out.println(String.format("Best guess: %s || With list help: %s", bestGuessFromAI, bestGuessWithLS));
+//            System.out.println(String.format("Best guess: %s || With list help: %s", bestGuessFromAI, bestGuessWithLS));
             if (lstein.get(1).size() > 1) {
                 for (int k : lstein.get(1)) {
                     //System.out.println("EQUAL GUESSES WITH LS: " + TEST_IDS.get(k));
