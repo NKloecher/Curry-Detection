@@ -875,7 +875,7 @@ public class OCRReaderID {
             }
             //System.out.println("=========================================");
 
-            return new String[]{bestGuessFromAI, bestGuessWithLS};
+            return new String[]{bestGuessFromAI, bestGuessWithLS, String.valueOf(normalGuesses.quality)};
 
         }else {
 
@@ -893,7 +893,7 @@ public class OCRReaderID {
             }
             //System.out.println("=========================================");
 
-            return new String[]{bestGuessFromAI, bestGuessWithLS};
+            return new String[]{bestGuessFromAI, bestGuessWithLS, String.valueOf(inverseGuesses.quality)};
         }
     }
 

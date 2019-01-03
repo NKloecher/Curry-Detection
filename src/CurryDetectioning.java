@@ -10,8 +10,8 @@ public class CurryDetectioning {
         ai = new AIMainOCR("aidataFinal.dat", 24, 24);
     }
 
-    public String processImage(MatOfByte byteImage,int blocksize){
-        return OCRReaderID.OCRBridge(ai, byteImage, blocksize)[1];
+    public String[] processImage(MatOfByte byteImage,int blocksize){
+        return OCRReaderID.OCRBridge(ai, byteImage, blocksize);
     }
 
 }

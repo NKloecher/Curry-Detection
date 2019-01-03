@@ -19,9 +19,7 @@ import java.awt.image.WritableRaster;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 
@@ -73,7 +71,10 @@ public class CurryPanel extends Application {
     private final Button pauseButton = new Button("Pause");
 
     private CurryDetectioning cd = new CurryDetectioning();
+    private String bestGuess = "";
+    private double bestGuessQuality = 0;
 
+    private String captureOption = "truck"; //default option
 
     static {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
@@ -85,6 +86,7 @@ public class CurryPanel extends Application {
 
     @Override
     public void start(Stage stage) {
+        if (!getParameters().getRaw().isEmpty()) captureOption = getParameters().getRaw().get(0);
 
         Tab gridTab = new Tab();
         gridTab.setContent(firstTabGridPane);
@@ -160,20 +162,28 @@ public class CurryPanel extends Application {
         stage.setScene(scene);
 
         stage.show();
-        //camera = new VideoCapture(0); //webcam
-//        camera = new VideoCapture("res/virb.mp4"); //video
-        camera = new VideoCapture("res/cutOut.mp4");
+        System.out.println(captureOption);
+        if (captureOption.equals("webcam")) camera = new VideoCapture(0); //webcam
+        else if (captureOption.equals("walking")) camera = new VideoCapture("res/virb.mp4"); //video
+        else if (captureOption.equals("truck")) camera = new VideoCapture("res/cutOut.mp4"); //video from truck
         startCamera();
         startGuessing();
 
     }
     private void startGuessing() {
         Runnable makeGuess = () -> {
-            //if (frame.empty() || paused) return;
+            if (original.empty()) return;
+//            System.out.println("working");
             MatOfByte imagebytes = new MatOfByte();
             Mat pp = new Mat(original, new Rect(original.width()/3,original.height()/4,original.width()/4,original.height()/4*3));
             Imgcodecs.imencode(".png", pp, imagebytes);
-            ocrGuess.setText(cd.processImage(imagebytes, blocksize));
+            String[] result = cd.processImage(imagebytes, blocksize);
+            String s = String.format("%s - %.2f%%", result[1], Double.valueOf(result[2]));
+            if (Double.valueOf(result[2]) > bestGuessQuality) {
+                bestGuessQuality = Double.valueOf(result[2]);
+                bestGuess = String.format("%s - %.2f%%", result[1], bestGuessQuality);
+            }
+            ocrGuess.setText("Current Guess:\n" + s + "\n\nBest Guess:\n" + bestGuess);
         };
 
         ScheduledExecutorService guessService = Executors.newSingleThreadScheduledExecutor();
@@ -182,9 +192,7 @@ public class CurryPanel extends Application {
 
     private void startCamera() {
         Runnable grabFrame = () -> {
-            if (paused) {
-                return;
-            }
+            if (paused) return;
             if (camera.read(frame)) {
                 processFrame(frame);
             }
@@ -195,14 +203,13 @@ public class CurryPanel extends Application {
                     e.printStackTrace();
                 }
                 camera.release();
-//                camera.open("res/virb.mp4");
-                camera.open("res/cutOut.mp4");
+                if (captureOption.equals("walking")) camera.open("res/virb.mp4");
+                else if (captureOption.equals("truck")) camera.open("res/cutOut.mp4");
             }
         };
 
         ScheduledExecutorService frameService = Executors.newSingleThreadScheduledExecutor();
         frameService.scheduleAtFixedRate(grabFrame, 0, 20, TimeUnit.MILLISECONDS);
-
     }
 
     private void processFrame(Mat frame) {

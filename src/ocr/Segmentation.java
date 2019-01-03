@@ -263,6 +263,10 @@ public class Segmentation {
      * @return The two/three x, or y, coordinates corresponding to the heatmap clustering of contours.
      */
     public static double[] kMeansSort(List<Rect> rects, boolean isVertical) {
+        if (rects.size() < 4) {
+//            System.out.println("Failsafe kmeans");
+            return null;
+        }
         Mat mat = new Mat(rects.size(),1,CvType.CV_32F);
         if (isVertical) {
             for (int i = 0; i < rects.size(); i++) {
