@@ -2,6 +2,6 @@ import javafx.application.Application;
 
 public class Main {
     public static void main(String[] args) {
-        Application.launch(CurryPanel.class, "webcam"); //webcam, walking, truck
+        Application.launch(CurryPanel.class, "truck"); //webcam, walking, truck
     }
 }
